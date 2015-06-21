@@ -48,20 +48,33 @@ directory "/var/monit" do
   mode  "0700"
 end
 
-# enable service startup
-file "/etc/default/monit" do
-  owner "root"
-  group "root"
-  mode "0644"
-  content [
-    "START=yes",
-    "MONIT_OPTS=#{node["monit"]["init_opts"]}"
-  ].join("\n")
-  notifies :restart, "service[monit]"
+if node['monit']['use_upstart']
+  cookbook_file "/etc/init/monit.conf" do
+    source "monit.conf"
+    owner "root"
+    group "root"
+    mode  "0644"
+  end
+else
+  # enable service startup
+  file "/etc/default/monit" do
+    owner "root"
+    group "root"
+    mode  "0644"
+
+    content [
+      "START=yes",
+      "MONIT_OPTS=#{node["monit"]["init_opts"]}"
+    ].join("\n")
+
+    notifies :restart, "service[monit]"
+  end
 end
 
 # system service
 service "monit" do
+  provider Chef::Provider::Service::Upstart if node['monit']['use_upstart']
+
   supports restart: true, reload: true
   action [:enable, :start]
 end
